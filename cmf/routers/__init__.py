@@ -23,6 +23,7 @@ from .operation_documents import router as operation_documents_router
 from .access_control import router as access_control_router
 
 from .out_source_parts_status import router as out_source_parts_status_router
+from .scheduling import router as scheduling_router
 
 
 
@@ -52,7 +53,9 @@ __all__ = [
 
     "access_control_router",
 
-    "out_source_parts_status_router"
+    "out_source_parts_status_router",
+
+    "scheduling_router"
 
 ]
 

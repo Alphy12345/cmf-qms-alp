@@ -36,6 +36,10 @@ from .quality import (
     StageInspection,
     FTP
 )
+from .scheduling import (
+    OrderScheduleStatus,
+    PartScheduleStatus
+)
 
 __all__ = [
     "Product",
@@ -47,6 +51,7 @@ __all__ = [
     "ToolWithPart",
     "Order",
     "OrderScheduleStatus",
+    "PartScheduleStatus",
     "OrderDocument",
     "OperationDocument",
     "OrderPartsRawMaterialLinked",

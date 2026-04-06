@@ -10,9 +10,10 @@ const { Content } = Layout;
 const AppLayout = ({ children }) => {
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
+  const isInspectorPage = location.pathname === '/admin/qms-inspector';
   const [collapsed, setCollapsed] = useState(false);
 
-  if (isLoginPage) {
+  if (isLoginPage || isInspectorPage) {
     return <>{children}</>;
   }
 

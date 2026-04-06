@@ -25,7 +25,7 @@ const PDM = () => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [productHierarchies, setProductHierarchies] = useState({});
-  const [activeTopTab, setActiveTopTab] = useState("pdm");
+  const [activeTopTab, setActiveTopTab] = useState(searchParams.get("tab") || "pdm");
 
   // Detect screen size
   React.useEffect(() => {
@@ -76,7 +76,12 @@ const PDM = () => {
           <div style={{ padding: "0 4px 10px 4px" }}>
             <Tabs
               activeKey={activeTopTab}
-              onChange={setActiveTopTab}
+              onChange={(key) => {
+                setActiveTopTab(key);
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set("tab", key);
+                navigate(`${window.location.pathname}?${newParams.toString()}`, { replace: true });
+              }}
               items={[
                 { key: "pdm", label: "PDM" },
                 { key: "pps", label: "PPS" },

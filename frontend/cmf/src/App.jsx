@@ -20,6 +20,7 @@ import Notification from "./Pages/Notification";
 import AccessControl from "./Pages/AccessControl";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ManufacturingCoordinator from "./Pages/ManufacturingCoordinator";
+import QMSInspector from "./Quality Management Components/QMSInspector";
 
 function App() {
   return (
@@ -61,6 +62,7 @@ function App() {
           <Route path="/admin/product-monitoring/pokayoke-checklists" element={<ProductionMonitoring />} />
 
           <Route path="/admin/quality-management" element={<QualityManagement />} />
+          <Route path="/admin/qms-inspector" element={<QMSInspector />} />
 
           <Route path="/admin/inventory-management" element={<Navigate to="/admin/inventory-management/inventory-master" replace />} />
           <Route path="/admin/inventory-management/inventory-master" element={<InventoryMaster />} />

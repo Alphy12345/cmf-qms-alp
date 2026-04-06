@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Button, Modal, Table, Spin } from 'antd';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MenuOutlined, AppstoreOutlined, ShoppingCartOutlined, ClusterOutlined, ToolOutlined, InfoCircleOutlined, EyeOutlined, BuildOutlined, CheckCircleOutlined, CloudDownloadOutlined } from "@ant-design/icons";
 import QualityManagementBOM from './QualityManagementBOM';
 import { Card, Tag, Typography, Empty, Space } from 'antd';
@@ -10,6 +11,7 @@ const { Sider, Content } = Layout;
 const { Text, Title } = Typography;
 
 const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
+  const navigate = useNavigate();
   const [selectedItem, setSelectedItem] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -17,9 +19,33 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
   const [operations, setOperations] = useState([]);
   const [partDocuments, setPartDocuments] = useState([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
+   const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewIsPdf, setPreviewIsPdf] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [orderStatus, setOrderStatus] = useState(initialOrderId ? 'checking' : 'active');
+  const [isCheckingStatus, setIsCheckingStatus] = useState(!!initialOrderId);
+
+  useEffect(() => {
+    if (initialOrderId && initialOrderId !== 'null') {
+      const checkOrderStatus = async () => {
+        setIsCheckingStatus(true);
+        try {
+          const res = await axios.get(`${QUALITY_API_BASE_URL}/scheduling/order-status/${initialOrderId}`);
+          setOrderStatus(res.data.order_status);
+        } catch (error) {
+          console.error("Error checking order status:", error);
+          setOrderStatus('error');
+        } finally {
+          setIsCheckingStatus(false);
+        }
+      };
+      checkOrderStatus();
+    } else {
+      setOrderStatus('active'); // No order ID means general access or handled by PDM
+      setIsCheckingStatus(false);
+    }
+  }, [initialOrderId]);
 
   useEffect(() => {
     if (selectedItem && selectedItem.itemType === 'part') {
@@ -46,7 +72,10 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
       
       // Auto-set the first part 2D drawing as default preview
       const partDrawing = docs.find(d => d.document_type?.toLowerCase().includes('2d'));
-      if (partDrawing) setPreviewUrl(partDrawing.document_url);
+      if (partDrawing) {
+        setPreviewUrl(partDrawing.document_url);
+        setPreviewIsPdf(partDrawing.document_url?.toLowerCase().endsWith('.pdf'));
+      }
     } catch (error) {
       console.error("Error fetching details:", error);
     } finally {
@@ -54,28 +83,38 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
     }
   };
 
-  const handlePreviewOperation = (op) => {
-    setPreviewTitle(`Operation ${op.operation_number}: ${op.operation_name}`);
-    
+  const getDrawingInfo = (op) => {
     const isDrawing = (d) => {
+      if (!d) return false;
       const type = (d.document_type || "").toLowerCase();
       const name = (d.document_name || "").toLowerCase();
-      return type.includes('2d') || type.includes('drawing') || name.includes('drawing') || name.includes('.pdf') || name.includes('.png') || name.includes('.jpg') || name.includes('.jpeg');
+      const isPdfFile = name.toLowerCase().endsWith('.pdf') || type.includes('pdf');
+      return type.includes('2d') || type.includes('drawing') || name.includes('drawing') || isPdfFile || name.includes('.png') || name.includes('.jpg') || name.includes('.jpeg');
     };
 
     let drawing = op.operation_documents?.find(isDrawing);
+    if (!drawing) drawing = partDocuments.find(isDrawing);
+    if (!drawing) drawing = op.operation_documents?.[0] || partDocuments[0];
     
-    if (!drawing) {
-      // Fallback to part drawing
-      drawing = partDocuments.find(isDrawing);
-    }
+    if (!drawing) return { url: null, isPdf: false, name: '' };
+    
+    const isPdf = (drawing.document_name || "").toLowerCase().endsWith('.pdf') || (drawing.document_type || "").toLowerCase().includes('pdf');
+    
+    // Choose correct endpoint based on document source
+    const endpoint = drawing.operation_id ? 'operation-documents' : 'documents';
+    
+    return {
+      url: `${QUALITY_API_BASE_URL}/${endpoint}/${drawing.id}/preview`,
+      isPdf,
+      name: drawing.document_name
+    };
+  };
 
-    // Ultimate fallback: first available document if nothing matches "2d/drawing" filters
-    if (!drawing) {
-      drawing = op.operation_documents?.[0] || partDocuments[0];
-    }
-
-    setPreviewUrl(drawing?.document_url || null);
+  const handlePreviewOperation = (op) => {
+    setPreviewTitle(`Operation ${op.operation_number}: ${op.operation_name}`);
+    const { url, isPdf } = getDrawingInfo(op);
+    setPreviewUrl(url);
+    setPreviewIsPdf(isPdf);
     setPreviewModalVisible(true);
   };
 
@@ -96,6 +135,7 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
     }
 
     setPreviewUrl(drawing?.document_url || null);
+    setPreviewIsPdf(drawing?.document_url?.toLowerCase().endsWith('.pdf') || false);
     setPreviewModalVisible(true);
   };
 
@@ -151,6 +191,36 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
       </Space>
     </Card>
   );
+
+  if (isCheckingStatus) {
+    return (
+      <div style={{ height: 'calc(100vh - 180px)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+        <Space direction="vertical" align="center">
+          <Spin size="large" />
+          <Text type="secondary">Checking order status...</Text>
+        </Space>
+      </div>
+    );
+  }
+
+  if (orderStatus !== 'active' && initialOrderId && initialOrderId !== 'null') {
+    return (
+      <div style={{ height: 'calc(100vh - 180px)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', borderRadius: '12px', border: '1px solid #f0f0f0', margin: '20px' }}>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <div style={{ textAlign: 'center' }}>
+              <Title level={4} style={{ color: '#ff4d4f' }}>Order Inactive</Title>
+              <Text type="secondary">
+                This order is currently inactive and not available for Quality Management.<br />
+                Please ensure the order is scheduled and activated in the PPS module.
+              </Text>
+            </div>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: 'calc(100vh - 180px)', overflow: 'hidden' }}>
@@ -331,11 +401,10 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
                               type="primary" 
                               ghost 
                               icon={<BuildOutlined />}
-                              onClick={() => Modal.info({
-                                title: 'Redirecting to QMS - Planning',
-                                content: 'This would take you to the QMS software where you can plan and annotate the drawing of the operation.',
-                                centered: true,
-                              })}
+                              onClick={() => {
+                                const { url, isPdf, name } = getDrawingInfo(record);
+                                navigate(`/admin/qms-inspector?opId=${record.id}&drawingUrl=${encodeURIComponent(url || '')}&isPdf=${isPdf}&fileName=${encodeURIComponent(name || '')}`);
+                              }}
                             >
                               Create Plan
                             </Button>
@@ -379,7 +448,7 @@ const QualityManagement = ({ initialProductId, initialOrderId, fromOms }) => {
               >
                 <div style={{ width: '100%', height: '100%', background: '#fff' }}>
                   {previewUrl ? (
-                    previewUrl.toLowerCase().endsWith('.pdf') ? (
+                    previewIsPdf ? (
                       <iframe 
                         src={`${previewUrl}#toolbar=0`} 
                         width="100%" 

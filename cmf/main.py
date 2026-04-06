@@ -40,6 +40,8 @@ from routers import (
 
     out_source_parts_status_router,
 
+    scheduling_router,
+
 )
 
 
@@ -186,6 +188,8 @@ app.include_router(machines_router, prefix="/api/v1")
 app.include_router(operation_documents_router, prefix="/api/v1")
 
 app.include_router(out_source_parts_status_router, prefix="/api/v1")
+
+app.include_router(scheduling_router, prefix="/api/v1")
 
 
 @app.get("/")
